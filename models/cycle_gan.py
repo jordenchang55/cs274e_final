@@ -49,6 +49,13 @@ class CycleGAN:
                 data_b = self.dataset_b[i]
                 self.step(data_a[None, :, :, :], data_b[None, :, :, :], i, e)
 
+            if e % 10 == 0:
+                # do check pointing
+                torch.save(self.g_a.state_dict(), f"weights/netG_A_epoch_{e}.pth")
+                torch.save(self.g_b.state_dict(), f"weights/netG_B_epoch_{e}.pth")
+                torch.save(self.d_a.state_dict(), f"weights/netD_A_epoch_{e}.pth")
+                torch.save(self.d_b.state_dict(), f"weights/netD_B_epoch_{e}.pth")
+
     def forward(self, real_a, real_b):
         # print(real_a.shape)
         fake_b = self.g_a(real_a)
@@ -129,13 +136,12 @@ class CycleGAN:
             vutils.save_image(real_a,
                               f"{self.output_folder}/A/real_samples.png",
                               normalize=True)
-            vutils.save_image(real_b, f"{self.output_folder}/B/real_samples.png",normalize=True)
+            vutils.save_image(real_b, f"{self.output_folder}/B/real_samples.png", normalize=True)
 
             fake_image_A = 0.5 * (self.g_b(real_b).data + 1.0)
             fake_image_B = 0.5 * (self.g_a(real_a).data + 1.0)
 
             vutils.save_image(fake_image_A.detach(),
-                              f"{self.output_folder}/A/fake_samples_epoch_{epoch}_{i}.png",normalize=True)
+                              f"{self.output_folder}/A/fake_samples_epoch_{epoch}_{i}.png", normalize=True)
             vutils.save_image(fake_image_B.detach(),
-                              f"{self.output_folder}/B/fake_samples_epoch_{epoch}_{i}.png",normalize=True)
-
+                              f"{self.output_folder}/B/fake_samples_epoch_{epoch}_{i}.png", normalize=True)
