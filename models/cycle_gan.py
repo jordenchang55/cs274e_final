@@ -179,10 +179,10 @@ class CycleGAN:
 
         # Cycle loss
         recovered_A = self.g_b(fake_B)
-        cycle_loss_ABA = self.l1_loss(recovered_A, real_A)
+        cycle_loss_ABA = self.l1_loss(recovered_A, real_A)*10.0 # lambda = 10
 
         recovered_B = self.g_a(fake_A)
-        cycle_loss_BAB = self.l1_loss(recovered_B, real_B)
+        cycle_loss_BAB = self.l1_loss(recovered_B, real_B)*10.0 # lambda = 10
 
         # Final Loss
         total_loss = id_loss_A + id_loss_B + GAN_loss_A2B + GAN_loss_B2A + cycle_loss_ABA + cycle_loss_BAB
@@ -200,7 +200,7 @@ class CycleGAN:
         fake_A_label = self.d_a(fake_A)
         err_da_fake_a = self.adversarial_loss(fake_A_label,zeros)
 
-        loss_da = (err_da_real_a + err_da_fake_a) / 2
+        loss_da = (err_da_real_a + err_da_fake_a) / 2.0
         loss_da.backward()
         self.optimizer_d_a.step()
 
@@ -212,7 +212,7 @@ class CycleGAN:
         fake_B_label = self.d_b(fake_B)
         err_db_fake_b = self.adversarial_loss(fake_B_label, zeros)
 
-        loss_db = (err_db_real_b + err_db_fake_b) / 2
+        loss_db = (err_db_real_b + err_db_fake_b) / 2.0
         loss_db.backward()
         self.optimizer_d_b.step()
 
