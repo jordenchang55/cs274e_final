@@ -3,7 +3,7 @@ import itertools
 import torch
 from tqdm import tqdm
 from torch.optim import Adam
-from torch.nn import L1Loss, MSELoss
+from torch.nn import L1Loss, MSELoss, BCELoss
 from models.utils import weights_init, ImagePool
 from .networks import Generator, Discriminator
 import torchvision.utils as vutils
@@ -49,11 +49,13 @@ class CycleGAN:
             progress_bar = tqdm(enumerate(self.dataloader), total=len(self.dataloader))
             #for i, data_a in progress_bar:
             for i, data in progress_bar:
-                data_a = data['A']
-                data_b = data['B']
+                # data_a = data['A']
+                # data_b = data['B']
+                real_image_A = data['A'].to(self.device)
+                real_image_B = data['B'].to(self.device)
                 #self.dataset_b[i]
-                self.combined_step(data_a, data_b, i, e)
-
+                self.combined_step(real_image_A, real_image_B, i, e)
+                
             if e % 10 == 0:
                 # do check pointing
                 torch.save(self.g_a.state_dict(), f"weights/netG_A_epoch_{e}.pth")
@@ -152,8 +154,9 @@ class CycleGAN:
                               f"{self.output_folder}/B/fake_samples_epoch_{epoch}_{i}.png", normalize=True)
         
     def combined_step(self, real_A, real_B, i, epoch):
-        ones = torch.ones((real_A.size(0), 1), device=self.device) # real labels
-        zeros = torch.ones((real_A.size(0), 1), device=self.device)# fake labels
+        batch_size = real_A.size(0)
+        ones = torch.full((batch_size, 1), 1, device=self.device, dtype=torch.float32)
+        zeros = torch.full((batch_size, 1), 0, device=self.device, dtype=torch.float32)
 
         self.optimizer_g.zero_grad()
 
@@ -197,7 +200,7 @@ class CycleGAN:
         err_da_real_a = self.adversarial_loss(real_A_label,ones)
 
         fake_A = self.fake_a_pool.query(fake_A)
-        fake_A_label = self.d_a(fake_A)
+        fake_A_label = self.d_a(fake_A.detach())
         err_da_fake_a = self.adversarial_loss(fake_A_label,zeros)
 
         loss_da = (err_da_real_a + err_da_fake_a) / 2.0
@@ -209,7 +212,7 @@ class CycleGAN:
         err_db_real_b = self.adversarial_loss(real_B_label, ones)
 
         fake_B = self.fake_b_pool.query(fake_B)
-        fake_B_label = self.d_b(fake_B)
+        fake_B_label = self.d_b(fake_B.detach())
         err_db_fake_b = self.adversarial_loss(fake_B_label, zeros)
 
         loss_db = (err_db_real_b + err_db_fake_b) / 2.0
