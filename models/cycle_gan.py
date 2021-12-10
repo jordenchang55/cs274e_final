@@ -52,7 +52,6 @@ class CycleGAN:
                 data_a = data['A']
                 data_b = data['B']
                 #self.dataset_b[i]
-                #self.step(data_a, data_b, i, e)
                 self.combined_step(data_a, data_b, i, e)
 
             if e % 10 == 0:
@@ -140,9 +139,9 @@ class CycleGAN:
 
         if i % 100 == 0:
             vutils.save_image(real_a,
-                              f"{self.output_folder}/A/real_samples.png",
+                              f"{self.output_folder}/B/real_samples_epoch_{epoch}_{i}.png",
                               normalize=True)
-            vutils.save_image(real_b, f"{self.output_folder}/B/real_samples.png", normalize=True)
+            vutils.save_image(real_b, f"{self.output_folder}/A/real_samples_epoch_{epoch}_{i}.png", normalize=True)
 
             fake_image_A = 0.5 * (self.g_b(real_b).data + 1.0)
             fake_image_B = 0.5 * (self.g_a(real_a).data + 1.0)
@@ -151,16 +150,18 @@ class CycleGAN:
                               f"{self.output_folder}/A/fake_samples_epoch_{epoch}_{i}.png", normalize=True)
             vutils.save_image(fake_image_B.detach(),
                               f"{self.output_folder}/B/fake_samples_epoch_{epoch}_{i}.png", normalize=True)
-
+        
     def combined_step(self, real_A, real_B, i, epoch):
-        ones = torch.ones((batch_size, 1), device=self.device) # real labels
-        zeros = torch.ones((batch_size, 1), device=self.device)# fake labels
+        ones = torch.ones((real_A.size(0), 1), device=self.device) # real labels
+        zeros = torch.ones((real_A.size(0), 1), device=self.device)# fake labels
 
         self.optimizer_g.zero_grad()
 
         # Identity loss
         # G_B2A(real_A) should look like real_A (use g_b)
         # G_A2B(real_B) should look like real_B (use g_a)
+        real_A = real_A.to(self.device)
+        real_B = real_B.to(self.device)
         identity_A = self.g_b(real_A)
         identity_B = self.g_a(real_B)
 
@@ -216,16 +217,15 @@ class CycleGAN:
         self.optimizer_d_b.step()
 
         if i % 100 == 0:
-            vutils.save_image(real_a,
-                              f"{self.output_folder}/A/real_samples.png",
+            vutils.save_image(real_A,
+                              f"{self.output_folder}/B/real_samples_epoch_{epoch}_{i}.png",
                               normalize=True)
-            vutils.save_image(real_b, f"{self.output_folder}/B/real_samples.png", normalize=True)
+            vutils.save_image(real_B, f"{self.output_folder}/A/real_samples_epoch_{epoch}_{i}.png", normalize=True)
 
-            fake_image_A = 0.5 * (self.g_b(real_b).data + 1.0)
-            fake_image_B = 0.5 * (self.g_a(real_a).data + 1.0)
+            fake_image_A = 0.5 * (self.g_b(real_B).data + 1.0)
+            fake_image_B = 0.5 * (self.g_a(real_A).data + 1.0)
 
             vutils.save_image(fake_image_A.detach(),
                               f"{self.output_folder}/A/fake_samples_epoch_{epoch}_{i}.png", normalize=True)
             vutils.save_image(fake_image_B.detach(),
                               f"{self.output_folder}/B/fake_samples_epoch_{epoch}_{i}.png", normalize=True)
-
