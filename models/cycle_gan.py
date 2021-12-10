@@ -10,11 +10,13 @@ import torchvision.utils as vutils
 
 
 class CycleGAN:
-    def __init__(self, dataset_a, dataset_b, learning_rate, pool_size, output_folder, device='cpu'):
+    def __init__(self, dataloader, learning_rate, pool_size, output_folder, device='cpu'):
+    #def __init__(self, dataset_a, dataset_b, learning_rate, pool_size, output_folder, device='cpu'):
         self.device = device
         self.output_folder = output_folder
-        self.dataset_a = dataset_a
-        self.dataset_b = dataset_b
+        self.dataloader = dataloader
+        #self.dataset_a = dataset_a
+        #self.dataset_b = dataset_b
 
         self.adversarial_loss = MSELoss()
         self.l1_loss = L1Loss()
@@ -43,12 +45,13 @@ class CycleGAN:
 
         for e in range(num_epochs):
             print('=====Epoch %d=====' % e)
-            progress_bar = tqdm(enumerate(self.dataset_a), total=len(self.dataset_a))
-
-            for i, data_a in progress_bar:
-                # data_b = self.dataset_b[i]
-                data_b = self.dataset_b
-                # self.step(data_a[None, :, :, :], data_b[None, :, :, :], i, e)
+            #progress_bar = tqdm(enumerate(self.dataset_a), total=len(self.dataset_a))
+            progress_bar = tqdm(enumerate(self.dataloader), total=len(self.dataloader))
+            #for i, data_a in progress_bar:
+            for i, data in progress_bar:
+                data_a = data['A']
+                data_b = data['B']
+                #self.dataset_b[i]
                 self.step(data_a, data_b, i, e)
 
             if e % 10 == 0:
