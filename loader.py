@@ -56,7 +56,7 @@ class ImageFolder(data.Dataset):
         if self.return_paths:
             return img_A, img_B, path_A, path_B
         else:
-            return img_A, img_B
+            return {"A": img_A, "B": img_B}
 
     def __len__(self):
         return len(self.imgs)
