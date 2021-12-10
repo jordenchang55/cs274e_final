@@ -20,10 +20,10 @@ class CycleGAN:
         self.l1_loss = L1Loss()
 
         # init 4 networks
-        self.g_a = Generator().to(device)
-        self.g_b = Generator().to(device)
-        self.d_a = Discriminator().to(device)
-        self.d_b = Discriminator().to(device)
+        self.g_a = Generator().to(device) # netG_A2B
+        self.g_b = Generator().to(device) # netG_B2A
+        self.d_a = Discriminator().to(device) # netD_A
+        self.d_b = Discriminator().to(device) # netD_B
 
         self.fake_a_pool = ImagePool(pool_size)  # create image buffer to store previously generated images
         self.fake_b_pool = ImagePool(pool_size)  # create image buffer to store previously generated images
@@ -46,8 +46,10 @@ class CycleGAN:
             progress_bar = tqdm(enumerate(self.dataset_a), total=len(self.dataset_a))
 
             for i, data_a in progress_bar:
-                data_b = self.dataset_b[i]
-                self.step(data_a[None, :, :, :], data_b[None, :, :, :], i, e)
+                # data_b = self.dataset_b[i]
+                data_b = self.dataset_b
+                # self.step(data_a[None, :, :, :], data_b[None, :, :, :], i, e)
+                self.step(data_a, data_b, i, e)
 
             if e % 10 == 0:
                 # do check pointing
@@ -69,33 +71,33 @@ class CycleGAN:
         self.optimizer_g.zero_grad()
 
         loss_identity_a, loss_identity_b = self.compute_identity_loss(real_a, real_b)
-        loss_gan_ab, loss_gan_ba = self.compute_gan_loss(fake_a, fake_b)
-        loss_cycle_bab, loss_cycle_aba = self.compute_cycle_loss(real_a, real_b, rec_a, rec_b)
+        loss_gan_ba, loss_gan_ab = self.compute_gan_loss(fake_a, fake_b)
+        loss_cycle_aba, loss_cycle_bab = self.compute_cycle_loss(real_a, real_b, rec_a, rec_b)
         loss_total = loss_identity_a + loss_identity_b + loss_gan_ab + loss_gan_ba + loss_cycle_bab + loss_cycle_aba
         print(loss_total)
         loss_total.backward()
         self.optimizer_g.step()
 
     def backward_d_a(self, real_a, fake_a):
-        err = self.backward_d_common(real_a, fake_a, self.fake_a_pool)
+        err = self.backward_d_common(self.d_a, real_a, fake_a, self.fake_a_pool)
         err.backward()
         self.optimizer_d_a.step()
 
     def backward_d_b(self, real_b, fake_b):
-        err = self.backward_d_common(real_b, fake_b, self.fake_a_pool)
+        err = self.backward_d_common(self.d_b, real_b, fake_b, self.fake_a_pool)
         err.backward()
         self.optimizer_d_b.step()
 
-    def backward_d_common(self, real, fake, pool):
+    def backward_d_common(self, netD, real, fake, pool):
         batch_size = real.size(0)
         ones = torch.ones((batch_size, 1), device=self.device)
         zeros = torch.ones((batch_size, 1), device=self.device)
-        self.d_a.zero_grad()
-        real_output_a = self.d_a(real)
+        netD.zero_grad()
+        real_output_a = netD(real)
         err_real = self.adversarial_loss(real_output_a, ones)
 
         fake = pool.query(fake)
-        fake_output = self.d_a(fake.detach())
+        fake_output = netD(fake.detach())
         err_fake = self.adversarial_loss(fake_output, zeros)
 
         return (err_real + err_fake) / 2
