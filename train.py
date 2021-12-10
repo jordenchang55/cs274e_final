@@ -13,7 +13,7 @@ from PIL import Image
 
 CUDA = True
 
-DATA_ROOT = "./dataset/horse2zebra"
+DATA_ROOT = "./datasets/horse2zebra"
 OUT_PATH = "./outputs"
 
 IMAGE_SIZE = 256
