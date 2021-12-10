@@ -27,27 +27,36 @@ def default_loader(path):
 
 class ImageFolder(data.Dataset):
 
-    def __init__(self, root, transform=None, return_paths=False, loader=default_loader, max_size=200):
-        imgs = make_dataset(root, max_size)
-        if len(imgs) == 0:
+    def __init__(self, root_A, root_B, transform=None, return_paths=False, loader=default_loader, max_size=200):
+        imgs_A = make_dataset(root_A, max_size)
+        imgs_B = make_dataset(root_B, max_size)
+        if len(imgs_A) == 0:
             raise(RuntimeError("Found 0 images in: " + root + "\n"
                                "Supported image extensions are: " + ",".join(IMG_EXTENSIONS)))
 
-        self.root = root
-        self.imgs = imgs
+        self.root_A = root_A
+        self.root_B = root_B
+        self.imgs_A = imgs_A
+        self.imgs_B = imgs_B
+
         self.transform = transform
         self.return_paths = return_paths
         self.loader = loader
 
     def __getitem__(self, index):
-        path = self.imgs[index]
-        img = self.loader(path)
+        path_A = self.imgs_A[index]
+        path_B = self.imgs_B[index]
+
+        img_A = self.loader(path_A)
+        img_B = self.loader(path_B)
+
         if self.transform is not None:
-            img = self.transform(img)
+            img_A = self.transform(img_A)
+            img_B = self.transform(img_B)
         if self.return_paths:
-            return img, path
+            return img_A, img_B, path_A, path_B
         else:
-            return img
+            return img_A, img_B
 
     def __len__(self):
         return len(self.imgs)
