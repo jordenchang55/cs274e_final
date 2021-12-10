@@ -52,7 +52,8 @@ class CycleGAN:
                 data_a = data['A']
                 data_b = data['B']
                 #self.dataset_b[i]
-                self.step(data_a, data_b, i, e)
+                #self.step(data_a, data_b, i, e)
+                self.combined_step(data_a, data_b, i, e)
 
             if e % 10 == 0:
                 # do check pointing
@@ -150,3 +151,81 @@ class CycleGAN:
                               f"{self.output_folder}/A/fake_samples_epoch_{epoch}_{i}.png", normalize=True)
             vutils.save_image(fake_image_B.detach(),
                               f"{self.output_folder}/B/fake_samples_epoch_{epoch}_{i}.png", normalize=True)
+
+    def combined_step(self, real_A, real_B, i, epoch):
+        ones = torch.ones((batch_size, 1), device=self.device) # real labels
+        zeros = torch.ones((batch_size, 1), device=self.device)# fake labels
+
+        self.optimizer_g.zero_grad()
+
+        # Identity loss
+        # G_B2A(real_A) should look like real_A (use g_b)
+        # G_A2B(real_B) should look like real_B (use g_a)
+        identity_A = self.g_b(real_A)
+        identity_B = self.g_a(real_B)
+
+        id_loss_A = self.l1_loss(identity_A,real_A) * 5.0
+        id_loss_B = self.l1_loss(identity_B,real_B) * 5.0
+
+        # GAN loss
+        fake_A = self.g_b(real_B)
+        fake_A_label = self.d_a(fake_A)
+        GAN_loss_B2A = self.adversarial_loss(fake_A_label, ones)
+
+        fake_B = self.g_a(real_A)
+        fake_B_label = self.d_b(fake_B)
+        GAN_loss_A2B = self.adversarial_loss(fake_B_label, ones)
+
+        # Cycle loss
+        recovered_A = self.g_b(fake_B)
+        cycle_loss_ABA = self.l1_loss(recovered_A, real_A)
+
+        recovered_B = self.g_a(fake_A)
+        cycle_loss_BAB = self.l1_loss(recovered_B, real_B)
+
+        # Final Loss
+        total_loss = id_loss_A + id_loss_B + GAN_loss_A2B + GAN_loss_B2A + cycle_loss_ABA + cycle_loss_BAB
+
+        total_loss.backward()
+        self.optimizer_g.step()
+
+        self.optimizer_d_a.zero_grad()
+        self.optimizer_d_b.zero_grad()
+        # Update d_a
+        real_A_label = self.d_a(real_A)
+        err_da_real_a = self.adversarial_loss(real_A_label,ones)
+
+        fake_A = self.fake_a_pool.query(fake_A)
+        fake_A_label = self.d_a(fake_A)
+        err_da_fake_a = self.adversarial_loss(fake_A_label,zeros)
+
+        loss_da = (err_da_real_a + err_da_fake_a) / 2
+        loss_da.backward()
+        self.optimizer_d_a.step()
+
+        # update d_b
+        real_B_label = self.d_b(real_B)
+        err_db_real_b = self.adversarial_loss(real_B_label, ones)
+
+        fake_B = self.fake_b_pool.query(fake_B)
+        fake_B_label = self.d_b(fake_B)
+        err_db_fake_b = self.adversarial_loss(fake_B_label, zeros)
+
+        loss_db = (err_db_real_b + err_db_fake_b) / 2
+        loss_db.backward()
+        self.optimizer_d_b.step()
+
+        if i % 100 == 0:
+            vutils.save_image(real_a,
+                              f"{self.output_folder}/A/real_samples.png",
+                              normalize=True)
+            vutils.save_image(real_b, f"{self.output_folder}/B/real_samples.png", normalize=True)
+
+            fake_image_A = 0.5 * (self.g_b(real_b).data + 1.0)
+            fake_image_B = 0.5 * (self.g_a(real_a).data + 1.0)
+
+            vutils.save_image(fake_image_A.detach(),
+                              f"{self.output_folder}/A/fake_samples_epoch_{epoch}_{i}.png", normalize=True)
+            vutils.save_image(fake_image_B.detach(),
+                              f"{self.output_folder}/B/fake_samples_epoch_{epoch}_{i}.png", normalize=True)
+

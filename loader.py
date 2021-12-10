@@ -59,4 +59,4 @@ class ImageFolder(data.Dataset):
             return {"A": img_A, "B": img_B}
 
     def __len__(self):
-        return len(self.imgs)
+        return len(self.imgs_A)
