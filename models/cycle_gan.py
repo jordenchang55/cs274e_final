@@ -47,7 +47,7 @@ class CycleGAN:
 
             for i, data_a in progress_bar:
                 data_b = self.dataset_b[i]
-                self.step(data_a[None, :, :, :], data_b[None, :, :, :], i)
+                self.step(data_a[None, :, :, :], data_b[None, :, :, :], i, e)
 
     def forward(self, real_a, real_b):
         # print(real_a.shape)
@@ -116,7 +116,7 @@ class CycleGAN:
 
         return loss_cycle_aba, loss_cycle_bab
 
-    def step(self, data_a, data_b, i):
+    def step(self, data_a, data_b, i, epoch):
         real_a = data_a.to(self.device)
         real_b = data_b.to(self.device)
         fake_a, fake_b, rec_a, rec_b = self.forward(real_a, real_b)
@@ -125,7 +125,7 @@ class CycleGAN:
         self.backward_d_a(real_a, fake_a)
         self.backward_d_b(real_b, fake_b)
 
-        if i % 5 == 0:
+        if i % 100 == 0:
             vutils.save_image(real_a,
                               f"{self.output_folder}/A/real_samples.png",
                               normalize=True)
@@ -135,7 +135,7 @@ class CycleGAN:
             fake_image_B = 0.5 * (self.g_a(real_a).data + 1.0)
 
             vutils.save_image(fake_image_A.detach(),
-                              f"{self.output_folder}/A/fake_samples_epoch_{i}.png",normalize=True)
+                              f"{self.output_folder}/A/fake_samples_epoch_{epoch}_{i}.png",normalize=True)
             vutils.save_image(fake_image_B.detach(),
-                              f"{self.output_folder}/B/fake_samples_epoch_{i}.png",normalize=True)
+                              f"{self.output_folder}/B/fake_samples_epoch_{epoch}_{i}.png",normalize=True)
 

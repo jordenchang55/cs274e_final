@@ -54,7 +54,7 @@ try:
 except OSError:
     pass
 
-device = torch.device("cuda:2" if CUDA else "cpu")
+device = torch.device("cuda:3" if CUDA else "cpu")
 
 model = CycleGAN(train_A_dataset, train_B_dataset, 0.0002, 50, device=device, output_folder=OUT_PATH)
 model.train(300)
