@@ -1,26 +1,29 @@
 import itertools
 
 import torch
+from tqdm import tqdm
 from torch.optim import Adam
-from torch.nn import L1Loss, BCELoss
+from torch.nn import L1Loss, MSELoss
 from models.utils import weights_init, ImagePool
-from networks import Generator, Discriminator
+from .networks import Generator, Discriminator
+import torchvision.utils as vutils
 
 
 class CycleGAN:
-    def __init__(self, dataset_a, dataset_b, learning_rate, pool_size, device='cpu'):
+    def __init__(self, dataset_a, dataset_b, learning_rate, pool_size, output_folder, device='cpu'):
         self.device = device
+        self.output_folder = output_folder
         self.dataset_a = dataset_a
         self.dataset_b = dataset_b
 
-        self.bce_loss = BCELoss()
+        self.adversarial_loss = MSELoss()
         self.l1_loss = L1Loss()
 
         # init 4 networks
-        self.g_a = Generator()
-        self.g_b = Generator()
-        self.d_a = Discriminator()
-        self.d_b = Discriminator()
+        self.g_a = Generator().to(device)
+        self.g_b = Generator().to(device)
+        self.d_a = Discriminator().to(device)
+        self.d_b = Discriminator().to(device)
 
         self.fake_a_pool = ImagePool(pool_size)  # create image buffer to store previously generated images
         self.fake_b_pool = ImagePool(pool_size)  # create image buffer to store previously generated images
@@ -38,12 +41,16 @@ class CycleGAN:
 
     def train(self, num_epochs):
 
-        for _ in range(num_epochs):
-            for i, data_a in enumerate(self.dataset_a):
+        for e in range(num_epochs):
+            print('=====Epoch %d=====' % e)
+            progress_bar = tqdm(enumerate(self.dataset_a), total=len(self.dataset_a))
+
+            for i, data_a in progress_bar:
                 data_b = self.dataset_b[i]
-                self.step(data_a, data_b)
+                self.step(data_a[None, :, :, :], data_b[None, :, :, :], i)
 
     def forward(self, real_a, real_b):
+        # print(real_a.shape)
         fake_b = self.g_a(real_a)
         rec_a = self.g_b(fake_b)
         fake_a = self.g_b(real_b)
@@ -58,7 +65,7 @@ class CycleGAN:
         loss_gan_ab, loss_gan_ba = self.compute_gan_loss(fake_a, fake_b)
         loss_cycle_bab, loss_cycle_aba = self.compute_cycle_loss(real_a, real_b, rec_a, rec_b)
         loss_total = loss_identity_a + loss_identity_b + loss_gan_ab + loss_gan_ba + loss_cycle_bab + loss_cycle_aba
-
+        print(loss_total)
         loss_total.backward()
         self.optimizer_g.step()
 
@@ -78,11 +85,11 @@ class CycleGAN:
         zeros = torch.ones((batch_size, 1), device=self.device)
         self.d_a.zero_grad()
         real_output_a = self.d_a(real)
-        err_real = self.bce_loss(real_output_a, ones)
+        err_real = self.adversarial_loss(real_output_a, ones)
 
         fake = pool.query(fake)
         fake_output = self.d_a(fake.detach())
-        err_fake = self.bce_loss(fake_output, zeros)
+        err_fake = self.adversarial_loss(fake_output, zeros)
 
         return (err_real + err_fake) / 2
 
@@ -96,8 +103,11 @@ class CycleGAN:
         batch_size = fake_a.size(0)
         ones = torch.ones((batch_size, 1), device=self.device)
 
-        loss_gan_ba = self.bce_loss(fake_a, ones)
-        loss_gan_ab = self.bce_loss(fake_b, ones)
+        fake_output_a = self.d_a(fake_a)
+        fake_output_b = self.d_b(fake_b)
+
+        loss_gan_ba = self.adversarial_loss(fake_output_a, ones)
+        loss_gan_ab = self.adversarial_loss(fake_output_b, ones)
         return loss_gan_ba, loss_gan_ab
 
     def compute_cycle_loss(self, real_a, real_b, rec_a, rec_b):
@@ -106,7 +116,7 @@ class CycleGAN:
 
         return loss_cycle_aba, loss_cycle_bab
 
-    def step(self, data_a, data_b):
+    def step(self, data_a, data_b, i):
         real_a = data_a.to(self.device)
         real_b = data_b.to(self.device)
         fake_a, fake_b, rec_a, rec_b = self.forward(real_a, real_b)
@@ -114,3 +124,18 @@ class CycleGAN:
         self.backward_g(real_a, real_b, fake_a, fake_b, rec_a, rec_b)
         self.backward_d_a(real_a, fake_a)
         self.backward_d_b(real_b, fake_b)
+
+        if i % 5 == 0:
+            vutils.save_image(real_a,
+                              f"{self.output_folder}/A/real_samples.png",
+                              normalize=True)
+            vutils.save_image(real_b, f"{self.output_folder}/B/real_samples.png",normalize=True)
+
+            fake_image_A = 0.5 * (self.g_b(real_b).data + 1.0)
+            fake_image_B = 0.5 * (self.g_a(real_a).data + 1.0)
+
+            vutils.save_image(fake_image_A.detach(),
+                              f"{self.output_folder}/A/fake_samples_epoch_{i}.png",normalize=True)
+            vutils.save_image(fake_image_B.detach(),
+                              f"{self.output_folder}/B/fake_samples_epoch_{i}.png",normalize=True)
+
